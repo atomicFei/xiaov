@@ -6,6 +6,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.scienjus.smartqq.callback.MessageCallback;
 import com.scienjus.smartqq.constant.ApiURL;
 import com.scienjus.smartqq.model.*;
+import com.scienjus.smartqq.tools.CommonUtil;
 import net.dongliu.requests.Client;
 import net.dongliu.requests.HeadOnlyRequestBuilder;
 import net.dongliu.requests.Response;
@@ -131,6 +132,11 @@ public class SmartQQClient implements Closeable {
             }
         }
         LOGGER.info("二维码已保存在 " + filePath + " 文件中，请打开手机QQ并扫描二维码");
+        try{
+            CommonUtil.printQCode(filePath);
+        }finally {
+            LOGGER.info("打开操作完毕");
+        }
     }
 
     //用于生成ptqrtoken的哈希函数
@@ -392,7 +398,11 @@ public class SmartQQClient implements Closeable {
         JSONArray marknames = result.getJSONArray("marknames");
         for (int i = 0; marknames != null && i < marknames.size(); i++) {
             JSONObject item = marknames.getJSONObject(i);
-            friendMap.get(item.getLongValue("uin")).setMarkname(item.getString("markname"));
+            if(friendMap.get(item.getLongValue("uin"))!=null) {
+                friendMap.get(item.getLongValue("uin")).setMarkname(item.getString("markname"));
+            }else{
+                LOGGER.error("没有找到对应的好友：uin->"+item.getLongValue("uin"));
+            }
         }
         JSONArray vipinfo = result.getJSONArray("vipinfo");
         for (int i = 0; vipinfo != null && i < vipinfo.size(); i++) {
@@ -631,6 +641,8 @@ public class SmartQQClient implements Closeable {
     private Response<String> postWithRetry(ApiURL url, JSONObject r) {
         int times = 0;
         Response<String> response;
+        boolean sendFlag =false;
+        if(!sendFlag) return null;
         do {
             response = post(url, r);
             times++;
@@ -650,6 +662,7 @@ public class SmartQQClient implements Closeable {
 
     //检查消息是否发送成功
     private static void checkSendMsgResult(Response<String> response) {
+        if(response == null) return;
         if (response.getStatusCode() != 200) {
             LOGGER.error(String.format("发送失败，Http返回码[%d]", response.getStatusCode()));
         }

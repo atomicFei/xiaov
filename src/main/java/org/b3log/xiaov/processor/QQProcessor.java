@@ -80,7 +80,7 @@ public class QQProcessor {
         }
 
         LOGGER.info("Push QQ groups [msg=" + msg + "]");
-        qqService.sendToPushQQGroups(msg);
+        //qqService.sendToPushQQGroups(msg);
 
         final JSONObject ret = new JSONObject();
         context.renderJSON(ret);

@@ -18,6 +18,7 @@ package org.b3log.xiaov.service;
 import com.alibaba.fastjson.JSONObject;
 import com.scienjus.smartqq.callback.MessageCallback;
 import com.scienjus.smartqq.client.SmartQQClient;
+import com.scienjus.smartqq.constant.Config;
 import com.scienjus.smartqq.model.*;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.math.RandomUtils;
@@ -109,6 +110,7 @@ public class QQService {
      * &lt;groupId, group&gt;
      */
     private final Map<Long, Group> QQ_GROUPS = new ConcurrentHashMap<>();
+    private final Map<Long, GroupInfo> QQ_GROUP_INFOS = new ConcurrentHashMap<>();
     /**
      * The latest group ad time.
      * &lt;groupId, time&gt;
@@ -156,6 +158,7 @@ public class QQService {
     @Inject
     private ItpkQueryService itpkQueryService;
 
+
     /**
      * Initializes QQ client.
      */
@@ -171,16 +174,16 @@ public class QQService {
 
                         final String content = message.getContent();
                         final String key = XiaoVs.getString("qq.bot.key");
-                        if (!StringUtils.startsWith(content, key)) { // 不是管理命令，只是普通的私聊
-                            // 让小薇进行自我介绍
-                            xiaoV.sendMessageToFriend(message.getUserId(), XIAO_V_INTRO);
+//                        if (!StringUtils.startsWith(content, key)) { // 不是管理命令，只是普通的私聊
+//                            // 让小薇进行自我介绍
+////                            xiaoV.sendMessageToFriend(message.getUserId(), XIAO_V_INTRO);
+//
+//                            return;
+//                        }
 
-                            return;
-                        }
-
-                        final String msg = StringUtils.substringAfter(content, key);
-                        LOGGER.info("Received admin message: " + msg);
-                        sendToPushQQGroups(msg);
+                          String msg = StringUtils.substringAfter(content, key);
+                        LOGGER.info("Received admin message: " + message.getContent()+",from uin :"+message.getUserId());
+//                        sendToPushQQGroups(msg);
                     } catch (final Exception e) {
                         LOGGER.log(Level.ERROR, "XiaoV on group message error", e);
                     }
@@ -213,7 +216,7 @@ public class QQService {
                 }).start();
             }
         });
-
+        reloadFriendss();
         reloadGroups();
         reloadDiscusses();
 
@@ -221,6 +224,7 @@ public class QQService {
     }
 
     private void sendToThird(final String msg, final String user) {
+        if(true) return;
         final String thirdAPI = XiaoVs.getString("third.api");
         final String thirdKey = XiaoVs.getString("third.key");
 
@@ -389,45 +393,67 @@ public class QQService {
         xiaoV.sendMessageToDiscuss(discussId, msg);
     }
 
+    /**
+     * 获取群id对应群详情
+     *
+     * @param id 被查询的群id
+     * @return 该群详情
+     */
+    private   GroupInfo getGroupInfoFromID(Long id) {
+        if (!QQ_GROUP_INFOS.containsKey(id)) {
+             QQ_GROUP_INFOS.put(id, xiaoV.getGroupInfo(QQ_GROUPS.get(id).getCode()));
+        }
+        return QQ_GROUP_INFOS.get(id);
+    }
+
+    /**
+     * 获取群id对应群详情
+     *
+      * @return 该群详情
+     */
+    private   GroupUser getGroupUserInfoFromGroupUserID(Long groupId,Long groupUserId) {
+        GroupInfo groupInfoFromID = getGroupInfoFromID(groupId);
+        if(groupInfoFromID !=null){
+            for (GroupUser groupUser : groupInfoFromID.getUsers()) {
+                if(groupUser.getUin() == groupUserId){
+                    return groupUser;
+                }
+            }
+        }
+        return null;
+    }
+
     private void onQQGroupMessage(final GroupMessage message) {
         final long groupId = message.getGroupId();
 
         final String content = message.getContent();
-        final String userName = Long.toHexString(message.getUserId());
+        final long userId =  message.getUserId();
         // Push to third system
         String qqMsg = content.replaceAll("\\[\"face\",[0-9]+\\]", "");
         if (StringUtils.isNotBlank(qqMsg)) {
             qqMsg = "<p>" + qqMsg + "</p>";
-            sendToThird(qqMsg, userName);
-        }
-
-        String msg = "";
-        if (StringUtils.contains(content, XiaoVs.QQ_BOT_NAME)
-                || (StringUtils.length(content) > 6
-                && (StringUtils.contains(content, "?") || StringUtils.contains(content, "？") || StringUtils.contains(content, "问")))) {
-            msg = answer(content, userName);
-        }
-
-        if (StringUtils.isBlank(msg)) {
-            return;
-        }
-
-        if (RandomUtils.nextFloat() >= 0.9) {
-            Long latestAdTime = GROUP_AD_TIME.get(groupId);
-            if (null == latestAdTime) {
-                latestAdTime = 0L;
+            GroupUser groupUserInfo= getGroupUserInfoFromGroupUserID(groupId, userId);
+            String nickName ="【没有找到对应的群友信息】";
+            if(groupUserInfo!=null){
+                nickName = groupUserInfo.getNick();
+            }
+            if(Config.focusNamesLike!=null && Config.focusNamesLike.length>0 ){
+                boolean canLog =false;
+                for (String name : Config.focusNamesLike) {
+                    if(nickName.indexOf(name)!=-1){
+                        canLog = true;
+                        break;
+                    }
+                }
+               if(canLog) LOGGER.info("group msg ->[" + QQ_GROUPS.get(groupId).getName() + "] " + nickName +" say: "+qqMsg);
+                 return;
             }
 
-            final long now = System.currentTimeMillis();
+            LOGGER.info("group msg ->[" + QQ_GROUPS.get(groupId).getName() + "] " +  (groupUserInfo==null?"【没有找到对应的群友信息】":groupUserInfo.getNick())+""+" say: "+qqMsg);
 
-            if (now - latestAdTime > 1000 * 60 * 30) {
-                msg = msg + "。\n" + ADS.get(RandomUtils.nextInt(ADS.size()));
 
-                GROUP_AD_TIME.put(groupId, now);
-            }
-        }
+         }
 
-        sendMessageToGroup(groupId, msg);
     }
 
     private void onQQDiscussMessage(final DiscussMessage message) {
@@ -576,6 +602,17 @@ public class QQService {
         return ret;
     }
 
+    private void reloadFriendss() {
+        final  List<Friend> friendList = xiaoV.getFriendList();
+
+        final StringBuilder msgBuilder = new StringBuilder();
+        msgBuilder.append("Reloaded Friends: \n");
+        for (final Friend f : friendList) {
+            msgBuilder.append("    ").append(f.getMarkname()).append("-> ").append(f.getNickname()).append(": ").append(f.getUserId()).append("\n");
+        }
+
+        LOGGER.log(Level.INFO, msgBuilder.toString());
+    }
     private void reloadGroups() {
         final List<Group> groups = xiaoV.getGroupList();
         QQ_GROUPS.clear();
