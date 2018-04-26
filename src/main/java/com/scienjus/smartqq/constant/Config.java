@@ -5,5 +5,5 @@ package com.scienjus.smartqq.constant;
  */
 public class Config {
 
-    public  static String[] focusNamesLike = new String[]{"高老庄","缘定","涨涨涨"};
+    public  static String[] focusNamesLike = new String[]{"nobby" };
 }
