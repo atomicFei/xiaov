@@ -18,7 +18,7 @@ public class Category {
 
     private String name;
 
-    private List<Friend> friends = new ArrayList<>();
+    private List<Friend> friends = new ArrayList<Friend>();
 
     public void addFriend(Friend friend) {
         this.friends.add(friend);

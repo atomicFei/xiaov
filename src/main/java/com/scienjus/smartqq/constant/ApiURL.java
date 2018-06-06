@@ -51,7 +51,7 @@ public enum ApiURL {
             "https://s.web2.qq.com/proxy.html?v=20130916001&callback=1&id=1"
     ),
     SEND_MESSAGE_TO_FRIEND(
-            "https://d1.web2.qq.com/channel/send_buddy_msg2",
+             "https://d1.web2.qq.com/channel/send_buddy_msg2",
             "https://d1.web2.qq.com/proxy.html?v=20151105001&callback=1&id=2"
     ),
     GET_DISCUSS_LIST(

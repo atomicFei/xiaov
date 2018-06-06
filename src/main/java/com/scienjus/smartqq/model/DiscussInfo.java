@@ -19,7 +19,7 @@ public class DiscussInfo {
     @JSONField(name = "discu_name")
     private String name;
 
-    private List<DiscussUser> users = new ArrayList<>();
+    private List<DiscussUser> users = new ArrayList<DiscussUser>();
 
     public void addUser(DiscussUser user) {
         this.users.add(user);

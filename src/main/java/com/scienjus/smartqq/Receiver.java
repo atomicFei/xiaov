@@ -17,14 +17,14 @@ import java.util.*;
 
 public class Receiver {
 
-    private static List<Friend> friendList = new ArrayList<>();                 //好友列表
-    private static List<Group> groupList = new ArrayList<>();                   //群列表
-    private static List<Discuss> discussList = new ArrayList<>();               //讨论组列表
-    private static Map<Long, Friend> friendFromID = new HashMap<>();            //好友id到好友映射
-    private static Map<Long, Group> groupFromID = new HashMap<>();              //群id到群映射
-    private static Map<Long, GroupInfo> groupInfoFromID = new HashMap<>();      //群id到群详情映射
-    private static Map<Long, Discuss> discussFromID = new HashMap<>();          //讨论组id到讨论组映射
-    private static Map<Long, DiscussInfo> discussInfoFromID = new HashMap<>();  //讨论组id到讨论组详情映射
+    private static List<Friend> friendList = new ArrayList<Friend>();                 //好友列表
+    private static List<Group> groupList = new ArrayList<Group>();                   //群列表
+    private static List<Discuss> discussList = new ArrayList<Discuss>();               //讨论组列表
+    private static Map<Long, Friend> friendFromID = new HashMap<Long, Friend>();            //好友id到好友映射
+    private static Map<Long, Group> groupFromID = new HashMap<Long, Group>();              //群id到群映射
+    private static Map<Long, GroupInfo> groupInfoFromID = new HashMap<Long, GroupInfo>();      //群id到群详情映射
+    private static Map<Long, Discuss> discussFromID = new HashMap<Long, Discuss>();          //讨论组id到讨论组映射
+    private static Map<Long, DiscussInfo> discussInfoFromID = new HashMap<Long, DiscussInfo>();  //讨论组id到讨论组详情映射
 
     private static boolean working;
     /**

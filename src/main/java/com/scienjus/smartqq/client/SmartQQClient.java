@@ -13,16 +13,15 @@ import net.dongliu.requests.Response;
 import net.dongliu.requests.Session;
 import net.dongliu.requests.exception.RequestException;
 import net.dongliu.requests.struct.Cookie;
+import org.apache.commons.codec.Charsets;
 import org.apache.log4j.Logger;
 
-import java.awt.Desktop;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
-import java.util.*;
-
-import java.nio.charset.StandardCharsets;
+ import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Api客户端.
@@ -66,7 +65,7 @@ public class SmartQQClient implements Closeable {
     //线程开关
     private volatile boolean pollStarted;
 
-
+    private AtomicInteger counter = new AtomicInteger(0);
     public SmartQQClient(final MessageCallback callback) {
         this.client = Client.pooled().maxPerRoute(5).maxTotal(10).build();
         this.session = client.session();
@@ -81,9 +80,15 @@ public class SmartQQClient implements Closeable {
                             return;
                         }
                         try {
+                            int _counter = counter.incrementAndGet();
+
+                                if(_counter%10==0){
+                                LOGGER.info("次读取完毕：计数器=》"+_counter);
+                                counter.set(0);
+                            }
                             pollMessage(callback);
                         } catch (RequestException e) {
-                            //忽略SocketTimeoutException
+                            //忽略SocketTimeoutException 因为线上没有任何接收信息也会发生这个错误
                             if (!(e.getCause() instanceof SocketTimeoutException)) {
                                 LOGGER.error(e.getMessage());
                             }
@@ -126,7 +131,7 @@ public class SmartQQClient implements Closeable {
                 .addHeader("User-Agent", ApiURL.USER_AGENT)
                 .file(filePath);
         for (Cookie cookie : response.getCookies()) {
-            if (Objects.equals(cookie.getName(), "qrsig")) {
+             if ("qrsig" ==(cookie.getName() )|| "qrsig".equals(cookie.getName() )) {
                 qrsig = cookie.getValue();
                 break;
             }
@@ -154,19 +159,24 @@ public class SmartQQClient implements Closeable {
         //阻塞直到确认二维码认证成功
         while (true) {
             sleep(1);
-            Response<String> response = get(ApiURL.VERIFY_QR_CODE, hash33(qrsig));
-            String result = response.getBody();
-            if (result.contains("成功")) {
-                for (String content : result.split("','")) {
-                    if (content.startsWith("http")) {
-                        LOGGER.info("正在登录，请稍后");
 
-                        return content;
+            try {
+                Response<String> response = get(ApiURL.VERIFY_QR_CODE, hash33(qrsig));
+                String result  = response.getBody();
+                if (result.contains("成功")) {
+                    for (String content : result.split("','")) {
+                        if (content.startsWith("http")) {
+                            LOGGER.info("正在登录，请稍后");
+
+                            return content;
+                        }
                     }
+                } else if (result.contains("已失效")) {
+                    LOGGER.info("二维码已失效，尝试重新获取二维码");
+                    getQRCode();
                 }
-            } else if (result.contains("已失效")) {
-                LOGGER.info("二维码已失效，尝试重新获取二维码");
-                getQRCode();
+            }catch (Exception e){
+
             }
         }
 
@@ -353,7 +363,7 @@ public class SmartQQClient implements Closeable {
         Map<Long, Friend> friendMap = parseFriendMap(result);
         //获得分组
         JSONArray categories = result.getJSONArray("categories");
-        Map<Integer, Category> categoryMap = new HashMap<>();
+        Map<Integer, Category> categoryMap = new HashMap<Integer, Category>();
         categoryMap.put(0, Category.defaultCategory());
         for (int i = 0; categories != null && i < categories.size(); i++) {
             Category category = categories.getObject(i, Category.class);
@@ -365,7 +375,7 @@ public class SmartQQClient implements Closeable {
             Friend friend = friendMap.get(item.getLongValue("uin"));
             categoryMap.get(item.getIntValue("categories")).addFriend(friend);
         }
-        return new ArrayList<>(categoryMap.values());
+        return new ArrayList<Category>(categoryMap.values());
     }
 
     /**
@@ -381,12 +391,12 @@ public class SmartQQClient implements Closeable {
         r.put("hash", hash());
 
         Response<String> response = post(ApiURL.GET_FRIEND_LIST, r);
-        return new ArrayList<>(parseFriendMap(getJsonObjectResult(response)).values());
+        return new ArrayList<Friend>(parseFriendMap(getJsonObjectResult(response)).values());
     }
 
     //将json解析为好友列表
     private static Map<Long, Friend> parseFriendMap(JSONObject result) {
-        Map<Long, Friend> friendMap = new HashMap<>();
+        Map<Long, Friend> friendMap = new HashMap<Long, Friend>();
         JSONArray info = result.getJSONArray("info");
         for (int i = 0; info != null && i < info.size(); i++) {
             JSONObject item = info.getJSONObject(i);
@@ -558,7 +568,7 @@ public class SmartQQClient implements Closeable {
         JSONObject result = getJsonObjectResult(response);
         GroupInfo groupInfo = result.getObject("ginfo", GroupInfo.class);
         //获得群成员信息
-        Map<Long, GroupUser> groupUserMap = new HashMap<>();
+        Map<Long, GroupUser> groupUserMap = new HashMap<Long, GroupUser>();
         JSONArray minfo = result.getJSONArray("minfo");
         for (int i = 0; minfo != null && i < minfo.size(); i++) {
             GroupUser groupUser = minfo.getObject(i, GroupUser.class);
@@ -600,7 +610,7 @@ public class SmartQQClient implements Closeable {
         JSONObject result = getJsonObjectResult(response);
         DiscussInfo discussInfo = result.getObject("info", DiscussInfo.class);
         //获得讨论组成员信息
-        Map<Long, DiscussUser> discussUserMap = new HashMap<>();
+        Map<Long, DiscussUser> discussUserMap = new HashMap<Long, DiscussUser>();
         JSONArray minfo = result.getJSONArray("mem_info");
         for (int i = 0; minfo != null && i < minfo.size(); i++) {
             DiscussUser discussUser = minfo.getObject(i, DiscussUser.class);
@@ -624,7 +634,7 @@ public class SmartQQClient implements Closeable {
         if (url.getReferer() != null) {
             request.addHeader("Referer", url.getReferer());
         }
-        return request.text(StandardCharsets.UTF_8); 
+        return request.text(Charsets.UTF_8);
     }
 
     //发送post请求
@@ -634,15 +644,13 @@ public class SmartQQClient implements Closeable {
                 .addHeader("Referer", url.getReferer())
                 .addHeader("Origin", url.getOrigin())
                 .addForm("r", r.toJSONString())
-                .text(StandardCharsets.UTF_8);
+                .text(Charsets.UTF_8);
     }
 
     //发送post请求，失败时重试
     private Response<String> postWithRetry(ApiURL url, JSONObject r) {
         int times = 0;
         Response<String> response;
-        boolean sendFlag =false;
-        if(!sendFlag) return null;
         do {
             response = post(url, r);
             times++;

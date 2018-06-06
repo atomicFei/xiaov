@@ -24,7 +24,7 @@ public class GroupInfo {
 
     private String markname;
 
-    private List<GroupUser> users = new ArrayList<>();
+    private List<GroupUser> users = new ArrayList<GroupUser>();
 
     public void addUser(GroupUser user) {
         this.users.add(user);
